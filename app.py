@@ -75,7 +75,6 @@ class Venue(db.Model):
       return upcoming_shows_count
 
 
-
 class Artist(db.Model):
     __tablename__ = 'Artist'
 
@@ -152,21 +151,6 @@ class Show(db.Model):
     def venue_image_link(self):
       venue_image_link = Venue.query.filter(Venue.id == self.venue_id).first().image_link
       return venue_image_link
-
-
-class Area(db.Model):
-  __tablename__  = "Area"
-
-  id = db.Column(db.Integer, primary_key=True)
-  city = db.Column(db.String(120))
-  state = db.Column(db.String(120))
-
-  @hybrid_property
-  def venues(self):
-    venues = Venue.query.filter(Venue.city == self.city).filter(Venue.state == self.state).all()
-
-    return venues
-
 
 
 #----------------------------------------------------------------------------#
