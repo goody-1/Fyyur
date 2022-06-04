@@ -15,8 +15,8 @@ from logging import Formatter, FileHandler
 from flask_wtf import Form
 from itsdangerous import exc
 from forms import *
+from models import Venue, Artist, Show
 
-from sqlalchemy.ext.hybrid import hybrid_property
 #----------------------------------------------------------------------------#
 # App Config.
 #----------------------------------------------------------------------------#
@@ -27,135 +27,9 @@ app.config.from_object('config')
 db = SQLAlchemy(app)
 migrate = Migrate(app, db, compare_type=True)
 
-# TODO: connect to a local postgresql database
-
-#----------------------------------------------------------------------------#
-# Models.
-#----------------------------------------------------------------------------#
-
-class Venue(db.Model):
-    __tablename__ = 'Venue'
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String, nullable=False)
-    city = db.Column(db.String(120))
-    state = db.Column(db.String(120))
-    address = db.Column(db.String(120))
-    phone = db.Column(db.String(120))
-    image_link = db.Column(db.String(500))
-    facebook_link = db.Column(db.String(120))
-
-    # TODO: implement any missing fields, as a database migration using Flask-Migrate
-
-    genres = db.Column(db.PickleType)
-    website = db.Column(db.String(300))
-    seeking_talent = db.Column(db.Boolean)
-    seeking_description = db.Column(db.Text)
-    shows = db.relationship('Show', backref="venue", lazy=True, passive_deletes=True)
-
-    @hybrid_property
-    def past_shows(self):
-      past_shows = Show.query.filter(
-        Show.venue_id == self.id).filter(Show.start_time < datetime.utcnow()).all()
-      return past_shows
-
-    @hybrid_property
-    def past_shows_count(self):
-      past_shows_count = db.session.query(db.func.count()).filter(
-        Show.venue_id == self.id).filter(Show.start_time < datetime.utcnow()).scalar()
-      return past_shows_count
-
-    @hybrid_property
-    def upcoming_shows(self):
-      upcoming_shows = Show.query.filter(
-        Show.venue_id == self.id).filter(Show.start_time > datetime.utcnow()).all()
-      return upcoming_shows
-
-    @hybrid_property
-    def upcoming_shows_count(self):
-      upcoming_shows_count = db.session.query(db.func.count()).filter(
-        Show.venue_id == self.id).filter(Show.start_time > datetime.utcnow()).scalar()
-      return upcoming_shows_count
-
-
-class Artist(db.Model):
-    __tablename__ = 'Artist'
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String, nullable=False)
-    city = db.Column(db.String(120))
-    state = db.Column(db.String(120))
-    phone = db.Column(db.String(120))
-    genres = db.Column(db.PickleType)
-    image_link = db.Column(db.String(500))
-    facebook_link = db.Column(db.String(120))
-
-    # TODO: implement any missing fields, as a database migration using Flask-Migrate
-    website = db.Column(db.String(300))
-    seeking_venue = db.Column(db.Boolean)
-    seeking_description = db.Column(db.Text)
-    shows = db.relationship('Show', backref="artist", lazy=True, passive_deletes=True)
-
-
-    @hybrid_property
-    def past_shows(self):
-      past_shows = Show.query.filter(
-        Show.artist_id == self.id).filter(Show.start_time < datetime.utcnow()).all()
-      return past_shows
-
-    @hybrid_property
-    def past_shows_count(self):
-      past_shows_count = db.session.query(db.func.count()).filter(
-        Show.artist_id == self.id).filter(Show.start_time < datetime.utcnow()).scalar()
-      return past_shows_count
-
-    @hybrid_property
-    def upcoming_shows(self):
-      upcoming_shows = Show.query.filter(
-        Show.artist_id == self.id).filter(Show.start_time > datetime.utcnow()).all()
-      return upcoming_shows
-
-    @hybrid_property
-    def upcoming_shows_count(self):
-      upcoming_shows_count = db.session.query(db.func.count()).filter(
-        Show.artist_id == self.id).filter(Show.start_time > datetime.utcnow()).scalar()
-      return upcoming_shows_count
-
-# TODO Implement Show and Artist models, and complete all model relationships and properties, as a database migration.
-
-class Show(db.Model):
-    __tablename__ = 'Show'
-
-    id = db.Column(db.Integer, primary_key=True)
-    artist_id = db.Column(db.Integer, db.ForeignKey('Artist.id', ondelete='CASCADE'), nullable=False)
-    venue_id = db.Column(db.Integer, db.ForeignKey('Venue.id', ondelete='CASCADE'), nullable=False)
-
-    start_time = db.Column(db.DateTime, default=datetime.utcnow)
-
-    # Usefulness of hybrid property
-    # https://docs.sqlalchemy.org/en/13/orm/mapped_sql_expr.html#using-a-hybrid
-    # I needed this to be able to use 'self.artist_id', avoiding 'self not defined'
-    # I can also call 'artist_name' or 'venue_name' for instance as an attribute instead of a function
-    @hybrid_property
-    def artist_name(self):
-      artist_name = Artist.query.filter(Artist.id == self.artist_id).all()[0].name
-      return artist_name
-
-    @hybrid_property
-    def venue_name(self):
-      venue_name = Venue.query.filter(Venue.id == self.venue_id).all()[0].name
-      return venue_name
-
-    @hybrid_property
-    def artist_image_link(self):
-      artist_image_link = Artist.query.filter(Artist.id == self.artist_id).all()[0].image_link
-      return artist_image_link
-
-    @hybrid_property
-    def venue_image_link(self):
-      venue_image_link = Venue.query.filter(Venue.id == self.venue_id).first().image_link
-      return venue_image_link
-
+# db.init_app(app)
+# with app.app_context():
+#   db.create_all(app=app)
 
 #----------------------------------------------------------------------------#
 # Filters.
@@ -233,15 +107,17 @@ def venues():
 @app.route('/venues/search', methods=['POST'])
 def search_venues():
   # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
-  # seach for Hop should return "The Musical Hop".
+  # search for Hop should return "The Musical Hop".
   # search for "Music" should return "The Musical Hop" and "Park Square Live Music & Coffee"
-  response={
-    "count": 1,
-    "data": [{
-      "id": 2,
-      "name": "The Dueling Pianos Bar",
-      "num_upcoming_shows": 0,
-    }]
+
+  search_query = request.form.get('search_term', '').strip()
+
+  query_venues = Venue.query.filter(Venue.name.ilike(
+    '%{}%'.format(search_query))).all()
+
+  response = {
+    "count": len(query_venues),
+    "data": query_venues
   }
   return render_template('pages/search_venues.html', results=response, search_term=request.form.get('search_term', ''))
 
@@ -338,14 +214,17 @@ def search_artists():
   # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
   # seach for "A" should return "Guns N Petals", "Matt Quevado", and "The Wild Sax Band".
   # search for "band" should return "The Wild Sax Band".
-  response={
-    "count": 1,
-    "data": [{
-      "id": 4,
-      "name": "Guns N Petals",
-      "num_upcoming_shows": 0,
-    }]
+
+  search_query = request.form.get('search_term', '').strip()
+
+  query_artists = Artist.query.filter(Artist.name.ilike(
+    '%{}%'.format(search_query))).all()
+
+  response = {
+    "count": len(query_artists),
+    "data": query_artists
   }
+
   return render_template('pages/search_artists.html', results=response, search_term=request.form.get('search_term', ''))
 
 @app.route('/artists/<int:artist_id>')
@@ -386,6 +265,37 @@ def edit_artist(artist_id):
 def edit_artist_submission(artist_id):
   # TODO: take values from the form submitted, and update existing
   # artist record with ID <artist_id> using the new attributes
+  artist = Artist.query.get(artist_id)
+
+  if artist:
+    try:
+      artist.name = request.form.get('name')
+      artist.city = request.form.get('city')
+      artist.state = request.form.get('state')
+      artist.phone = request.form.get('phone')
+      artist.genres = request.form.getlist('genres')
+      artist.seeking_venue = True if 'seeking_venue' in request.form else False
+      artist.seeking_description = request.form.get('seeking_description')
+      artist.image_link = request.form.get('image_link')
+      artist.website = request.form.get('website')
+      artist.facebook_link = request.form.get('facebook_link')
+
+      db.session.commit()
+      flash('Artist ' + artist.name + ' was successfully updated!')
+
+    except Exception:
+      db.session.rollback()
+      print(sys.exc_info())
+      flash(
+          "An error occurred. Artist "
+          + request.form.get("name")
+          + " could not be updated."
+      )
+      return redirect(url_for('edit_artist_submission', artist_id=artist_id))
+    finally:
+        db.session.close()
+  else:
+    flash("Artist id {} and Artist name {} does not exist".format(artist.id, request.form.get('name')))
 
   return redirect(url_for('show_artist', artist_id=artist_id))
 
@@ -397,21 +307,6 @@ def edit_venue(venue_id):
     return redirect(url_for('venues'))
   else:
     form = VenueForm(obj=venue)
-
-  # genre_list = list(form.genres)
-  # print("\n\n***{}".format(genre_list))
-
-  # venue.name=form.name
-  # # venue.genres=genre_list
-  # venue.address=form.address
-  # venue.city=form.city
-  # venue.state=form.state
-  # venue.phone=form.phone
-  # venue.website=form.website_link
-  # venue.facebook_link=form.facebook_link
-  # venue.seeking_talent=form.seeking_talent
-  # venue.seeking_description=form.seeking_description
-  # venue.image_link=form.image_link
 
   venue={
     "id": venue_id,
@@ -529,7 +424,7 @@ def shows():
   data = Show.query.all()
   return render_template('pages/shows.html', shows=data)
 
-@app.route('/shows/create')
+@app.route('/shows/create', methods=['GET'])
 def create_shows():
   # renders form. do not touch.
   form = ShowForm()
@@ -540,12 +435,27 @@ def create_show_submission():
   # called to create new shows in the db, upon submitting new show listing form
   # TODO: insert form data as a new Show record in the db, instead
 
-  # on successful db insert, flash success
-  flash('Show was successfully listed!')
-  # TODO: on unsuccessful db insert, flash an error instead.
-  # e.g., flash('An error occurred. Show could not be listed.')
-  # see: http://flask.pocoo.org/docs/1.0/patterns/flashing/
-  return render_template('pages/home.html')
+  try:
+    artist_id = request.form.get('artist_id')
+    venue_id = request.form.get('venue_id')
+
+    show = Show(artist_id=artist_id, venue_id=venue_id)
+
+    db.session.add(show)
+    db.session.commit()
+
+    # on successful db insert, flash success
+    flash('Show was successfully listed!')
+  except Exception:
+    db.session.rollback()
+    print(sys.exc_info())
+    # TODO: on unsuccessful db insert, flash an error instead.
+    flash('An error occurred. Show could not be listed.')
+    return redirect(url_for('create_show_submission'))
+  finally:
+    db.session.close()
+
+  return redirect(url_for('shows'))
 
 @app.errorhandler(404)
 def not_found_error(error):
